@@ -1,15 +1,18 @@
-# core/audio.py
-import os
+
+# ... rest of your existing core/audio.py imports and code ...
 import speech_recognition as sr
-from gtts import gTTS
-import pygame
 import tkinter as tk
 import time
+import sounddevice as sd
+from kokoro import KPipeline
 
 class AudioInterface:
     def __init__(self):
-        # Initialize pygame mixer for reliable audio playback
-        pygame.mixer.init()
+        print("[System] Initializing Kokoro Neural Engine...")
+        
+        # 'b' sets the pipeline to British English
+        # The first time this runs, it will quickly download the tiny ~300MB model
+        self.pipeline = KPipeline(lang_code='b')
         
         self.recognizer = sr.Recognizer()
         print("[System] Calibrating microphone... Please stand by.")
@@ -50,26 +53,24 @@ class AudioInterface:
 
     def speak(self, text):
         print(f"\n[ARCEUS]: {text}\n")
+        
         try:
-            # Generate the audio file using Google TTS
-            tts = gTTS(text=text, lang='en', tld='co.uk') # Using the UK voice for a slightly more distinguished AI tone
-            filename = "response.mp3"
-            tts.save(filename)
+            # Generate the voice using the British Male profile
+            # split_pattern ensures it parses your sentences naturally
+            generator = self.pipeline(
+                text, 
+                voice='bm_george', 
+                speed=1.0,
+                split_pattern=r'\n+'
+            )
             
-            # Play the audio file reliably
-            pygame.mixer.music.load(filename)
-            pygame.mixer.music.play()
-            
-            # Wait for the audio to finish playing
-            while pygame.mixer.music.get_busy():
-                pygame.time.Clock().tick(10)
+            # Play the generated audio chunks instantly as they are processed
+            for i, (gs, ps, audio) in enumerate(generator):
+                sd.play(audio, 24000)
+                sd.wait()
                 
-            # Clean up the audio engine so we can delete the temp file
-            pygame.mixer.music.unload()
-            os.remove(filename)
-            
         except Exception as e:
-            print(f"[Audio Error]: {e}")
+            print(f"[Kokoro Audio Error]: {e}")
 
     def listen(self, timeout=None, phrase_time=None, is_active=False):
         self.root.update()
