@@ -1,16 +1,28 @@
-# ARCEUS: Tactical Background Voice Assistant
+# ARCEUS - humourus human like AI Assistant
 
-ARCEUS is a military-grade, offline-wake-word AI assistant modeled after TARS from *Interstellar*. It runs seamlessly in the background, listening passively with minimal CPU footprint until called upon. Once activated, it leverages Google's Generative AI to provide concise, practical, and highly sarcastic responses.
+ARCEUS is an advanced, highly articulate voice assistant built with a sophisticated, sharply sarcastic British Butler persona. Inspired by cinematic sidekicks, ARCEUS balances a dry, aristocratic wit with flawless factual accuracy—making it a formidable companion for highly complex research domains, such as modern military IoT and drone network analysis.
 
-## Features
-* **Passive Background Listening:** Uses `SpeechRecognition` to monitor audio without actively recording or processing until the wake word ("Arceus") is detected.
-* **TARS Personality Engine:** Engineered system prompts enforce a strict 75% humor / 90% honesty threshold, resulting in dry, deadpan, and deeply loyal interactions.
-* **Modular Architecture:** Cleanly separated audio processing, AI logic, and configuration for easy scaling or swapping of LLM providers.
-* **Offline Text-to-Speech:** Uses `pyttsx3` for zero-latency, robotic voice synthesis.
+## 🚀 Features
+- **Personality Engine:** A refined British Butler archetype that provides elegant, concise, and mildly condescending humor without compromising factual accuracy.
+- **Neural Voice Integration:** Powered by the open-source **Kokoro-82M** engine running entirely locally, utilizing the deeply expressive `bm_george` voice profile.
+- **Low Latency Pipeline:** Audio generation is chunked and streamed instantly via `sounddevice`, bypassing heavy cloud API costs or multi-second inference lags.
+- **Dynamic HUD UI:** A clean, minimal, translucent floating heads-up display built natively via Tkinter.
 
-## Installation & Setup
+## 🛠️ System Architecture
+- **Core Brain:** Google Gemini API (via custom system prompts enforcing brevity, accuracy, and wit).
+- **Audio Synthesis:** Kokoro TTS (82M Parameter Transformer model).
+- **Speech Recognition:** Google Speech Recognition API via `speech_recognition`.
+- **UI & Playback:** Tkinter (Heads-Up Display) and Sounddevice (Real-time audio streaming).
 
-1. **Clone and enter the repository:**
-   ```bash
-   git clone [https://github.com/yourusername/arceus-assistant.git](https://github.com/yourusername/arceus-assistant.git)
-   cd arceus-assistant
+## 📦 Installation & Setup
+
+### 1. System Dependencies (Required for Audio Engine)
+The local neural phonetic engine requires `espeak-ng` installed on your host OS:
+- **Windows:** Download and run the [.msi installer from espeak-ng GitHub](https://github.com/espeak-ng/espeak-ng/releases).
+- **macOS:** `brew install espeak`
+- **Linux:** `sudo apt-get install espeak-ng`
+
+### 2. Python Environment Setup
+Clone the repository and install the tracked dependencies:
+```bash
+pip install -r requirements.txt

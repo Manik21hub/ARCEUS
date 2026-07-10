@@ -1,13 +1,25 @@
-# Environments
+# Environment and Secret Keys
 .env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+*.env
+secrets.json
 
-# Python cache
+# Local Python Caches and Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# Project Generated Audio Files
+*.mp3
+*.wav
+*.aac
+*.flac
+
+# IDE and System Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

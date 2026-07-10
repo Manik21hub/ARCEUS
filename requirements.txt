@@ -1,5 +1,7 @@
-SpeechRecognition
-pyttsx3
-pyaudio
-google-genai
+google-generativeai
 python-dotenv
+SpeechRecognition
+kokoro
+soundfile
+sounddevice
+pygame
