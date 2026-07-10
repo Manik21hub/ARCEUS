@@ -3,7 +3,6 @@ import os
 import time
 from core.audio import AudioInterface
 from core.brain import ArceusBrain
-from config.settings import WAKE_WORD
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -11,38 +10,48 @@ def clear_screen():
 def run_arceus():
     clear_screen()
     print("==================================================")
-    print("|| ARCEUS TACTICAL AI - BOOT SEQUENCE COMPLETE  ||")
-    print("|| Humor Setting: 75% | Honesty Setting: 90%    ||")
+    print("|| ARCEUS TACTICAL AI - DIAGNOSTIC MODE ACTIVE  ||")
     print("==================================================")
 
     audio = AudioInterface()
     brain = ArceusBrain()
     
-    audio.speak("Systems online. Monitoring for wake word.")
+    audio.speak("Systems online. Monitoring environment.")
+    
+    # Injected the exact spelling errors your microphone logs generated
+    wake_words = ["arceus", "rcs", "are see us", "arkius", "argius", "rcus", "rc", "arc", "rk"]
 
     while True:
-        print("[Listening...]", end="\r")
-        background_text = audio.listen()
+        # Increased phrase_time to 7 seconds to keep the window open longer
+        background_text = audio.listen(timeout=2, phrase_time=7, is_active=False)
         
-        if WAKE_WORD in background_text:
-            command = background_text.replace(WAKE_WORD, "").strip()
+        if background_text:
+            print(f"\n[Debug - Heard in Background]: {background_text}")
+        
+        detected_wake_word = next((word for word in wake_words if word in background_text), None)
+        
+        if detected_wake_word:
+            print(f"[System] Wake word '{detected_wake_word}' triggered!")
+            command = background_text.replace(detected_wake_word, "").strip()
             
-            # If they just called the name, wait for a command
             if not command:
-                audio.speak("Awaiting instructions.")
-                command = audio.listen(timeout=5, phrase_time=10)
+                audio.speak("Yes?")
+                print("[System] Listening for your command...")
+                command = audio.listen(timeout=5, phrase_time=10, is_active=True)
                 
             if command:
-                print(f"\n[User]: {command}")
+                print(f"[System - User Command Heard]: {command}")
+                print("[System] Sending to AI Brain...")
                 
-                # Check for easter eggs first
-                if "self destruct" in command:
-                    audio.speak("Self-destruct in three. Two. One. Boom. Standard humor setting response.")
-                    continue
-                    
-                # Fetch AI response
                 reply = brain.generate_response(command)
+                
+                print(f"[System - AI Raw Output]: {reply}")
+                print("[System] Sending to Voice Engine...")
+                
                 audio.speak(reply)
+                print("[System] Voice Engine finished speaking.")
+            else:
+                print("[System] No command attached.")
                 
         time.sleep(0.1)
 
@@ -50,4 +59,4 @@ if __name__ == "__main__":
     try:
         run_arceus()
     except KeyboardInterrupt:
-        print("\n[ARCEUS]: Manual override accepted. Powering down.")
+        print("\n[ARCEUS]: Powering down.")

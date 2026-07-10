@@ -1,0 +1,14 @@
+LICENSE
+README.md
+setup.py
+arceus_assistant.egg-info/PKG-INFO
+arceus_assistant.egg-info/SOURCES.txt
+arceus_assistant.egg-info/dependency_links.txt
+arceus_assistant.egg-info/entry_points.txt
+arceus_assistant.egg-info/requires.txt
+arceus_assistant.egg-info/top_level.txt
+config/__init__.py
+config/settings.py
+core/__init__.py
+core/audio.py
+core/brain.py

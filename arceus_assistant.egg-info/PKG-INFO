@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: arceus-assistant
+Version: 0.1.0
+License-File: LICENSE
+Requires-Dist: SpeechRecognition
+Requires-Dist: pyttsx3
+Requires-Dist: pyaudio
+Requires-Dist: google-generativeai
+Requires-Dist: python-dotenv
+Dynamic: license-file
+Dynamic: requires-dist

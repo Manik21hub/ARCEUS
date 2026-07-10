@@ -1,0 +1,2 @@
+[console_scripts]
+arceus = main:run_arceus

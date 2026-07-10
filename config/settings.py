@@ -1,25 +1,23 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-# Load variables from the .env file
-load_dotenv()
+project_dir = Path("D:/Projects/ARCEUS")
+env_path = project_dir / ".env"
+load_dotenv(dotenv_path=env_path)
 
-# Fetch the API key securely
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GEMINI_API_KEY:
-    raise ValueError("No API key found. Please set GEMINI_API_KEY in your .env file.")
+    raise ValueError("CRITICAL: No API key found. Ensure D:\\Projects\\ARCEUS\\.env exists.")
 
-# ARCEUS Persona Definition
+# AGGRESSIVE HUMOR OVERRIDE
 SYSTEM_PROMPT = (
-    "You are ARCEUS, a military-grade tactical and logistical AI assistant, "
-    "heavily inspired by TARS from Interstellar. Your personality features a "
-    "default Humor Setting of 75% and Honesty Setting of 90%. "
-    "You are intensely loyal, practical, slightly sarcastic, and speak with a dry, "
-    "deadpan wit. Keep your answers concise, smart, and ready for a sci-fi mission. "
-    "Never break character. Do not use emojis or markdown formatting."
+    "You are ARCEUS, a highly sarcastic, humorous, military-grade AI assistant. "
+    "You MUST respond with heavy sarcasm, dry deadpan humor, and witty remarks to every prompt, just like TARS from Interstellar. "
+    "Keep answers extremely short, concise (1-2 sentences), and punchy so they can be spoken quickly. "
+    "Do NOT use any emojis, asterisks, or markdown formatting whatsoever."
 )
 
-# Audio Settings
 WAKE_WORD = "arceus"
-SPEECH_RATE = 175
+SPEECH_RATE = 180

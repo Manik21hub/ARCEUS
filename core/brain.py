@@ -1,22 +1,25 @@
 # core/brain.py
-import google.generativeai as genai
+import re
+from google import genai
+from google.genai import types
 from config.settings import GEMINI_API_KEY, SYSTEM_PROMPT
 
 class ArceusBrain:
     def __init__(self):
-        genai.configure(api_key=GEMINI_API_KEY)
-        # Using flash for fast response times suitable for voice
-        self.model = genai.GenerativeModel(
-            'gemini-1.5-flash',
-            system_instruction=SYSTEM_PROMPT
+        self.client = genai.Client(api_key=GEMINI_API_KEY)
+        self.chat = self.client.chats.create(
+            model="gemini-3.1-flash-lite",  # Switched to the high-volume, stable model
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=100
+            )
         )
-        self.chat = self.model.start_chat(history=[])
 
     def generate_response(self, user_command):
         try:
             response = self.chat.send_message(user_command)
-            # Clean up asterisks or markdown that text-to-speech struggles with
-            clean_text = response.text.replace("*", "").strip()
+            clean_text = re.sub(r'[^a-zA-Z0-9\s.,!?\'-]', '', response.text).strip()
             return clean_text
         except Exception as e:
-            return "My communication relays are down. Unable to reach the server."
+            print(f"\n[API ERROR]: {str(e)}\n")
+            return "My circuits are fried. Check the error log."

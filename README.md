@@ -8,9 +8,9 @@ ARCEUS is a military-grade, offline-wake-word AI assistant modeled after TARS fr
 * **Modular Architecture:** Cleanly separated audio processing, AI logic, and configuration for easy scaling or swapping of LLM providers.
 * **Offline Text-to-Speech:** Uses `pyttsx3` for zero-latency, robotic voice synthesis.
 
-## Installation
+## Installation & Setup
 
-1. **Clone the repository:**
+1. **Clone and enter the repository:**
    ```bash
    git clone [https://github.com/yourusername/arceus-assistant.git](https://github.com/yourusername/arceus-assistant.git)
    cd arceus-assistant
