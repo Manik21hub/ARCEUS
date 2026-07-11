@@ -1,92 +1,92 @@
-
-# ... rest of your existing core/audio.py imports and code ...
+# core/audio.py
+import os
 import speech_recognition as sr
 import tkinter as tk
-import time
 import sounddevice as sd
+import torch  # <-- Add PyTorch import
 from kokoro import KPipeline
 
 class AudioInterface:
     def __init__(self):
-        print("[System] Initializing Kokoro Neural Engine...")
+        # 1. Hardware Detection Engine
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"[System] Initializing Kokoro Neural Engine on {self.device.upper()}...")
         
-        # 'b' sets the pipeline to British English
-        # The first time this runs, it will quickly download the tiny ~300MB model
-        self.pipeline = KPipeline(lang_code='b')
+        # 2. Inject the device parameter into the pipeline
+        self.pipeline = KPipeline(lang_code='b', device=self.device)
         
         self.recognizer = sr.Recognizer()
-        print("[System] Calibrating microphone... Please stand by.")
+        
+        # Microphone optimization
+        self.recognizer.dynamic_energy_threshold = False 
+        self.recognizer.energy_threshold = 250            
+        self.recognizer.pause_threshold = 0.4             
+        self.recognizer.non_speaking_duration = 0.3       
+        
         with sr.Microphone() as source:
             self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
             
-        self.recognizer.energy_threshold = 200 
-        self.recognizer.non_speaking_duration = 0.4
-        self.recognizer.pause_threshold = 0.8  
-        
         self.setup_ui()
-        print("[System] Calibration complete.")
+
+# ... (Keep the rest of your setup_ui, speak, and listen methods exactly the same) ...
 
     def setup_ui(self):
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.attributes("-alpha", 0.7)
-        self.root.configure(bg="#000000")
         
-        window_width = 150
-        window_height = 40
-        x = self.root.winfo_screenwidth() - window_width - 20
-        y = 20
-        self.root.geometry(f"{window_width}x{window_height}+{x}+{y}")
+        # Use a specific 'key' color for transparency that isn't black
+        self.transparent_color = "#000001" 
+        self.root.config(bg=self.transparent_color)
+        self.root.wm_attributes("-transparentcolor", self.transparent_color)
         
-        label = tk.Label(
-            self.root, 
-            text="ARCEUS", 
-            fg="#00FF66", 
-            bg="#000000", 
-            font=("Courier New", 14, "bold")
-        )
-        label.pack(expand=True, fill="both")
+        # Canvas for the "Ready" Dot (Use a dark color so it doesn't get transparent)
+        self.indicator = tk.Canvas(self.root, width=30, height=30, bg=self.transparent_color, highlightthickness=0)
+        self.indicator.pack()
+        self.dot = self.indicator.create_oval(5, 5, 25, 25, fill="#6ED7D0")
         
+        # Label for "Active" text
+        self.label = tk.Label(self.root, text="ARCEUS", fg="#6ED7D0", bg=self.transparent_color, 
+                              font=("Courier New", 16, "bold"))
+        
+        self.update_geometry(150, 40)
         self.root.withdraw()
+
+    def update_geometry(self, w, h):
+        x = self.root.winfo_screenwidth() - w - 20
+        y = 20
+        self.root.geometry(f"{w}x{h}+{x}+{y}")
+
+    def set_mode(self, active):
+        if active:
+            self.indicator.pack_forget()
+            self.label.pack(expand=True, fill="both")
+            self.update_geometry(150, 40)
+        else:
+            self.label.pack_forget()
+            self.indicator.pack()
+            self.update_geometry(40, 40)
+        self.root.deiconify()
         self.root.update()
 
     def speak(self, text):
+        self.set_mode(True)
         print(f"\n[ARCEUS]: {text}\n")
-        
         try:
-            # Generate the voice using the British Male profile
-            # split_pattern ensures it parses your sentences naturally
-            generator = self.pipeline(
-                text, 
-                voice='bm_george', 
-                speed=1.0,
-                split_pattern=r'\n+'
-            )
-            
-            # Play the generated audio chunks instantly as they are processed
-            for i, (gs, ps, audio) in enumerate(generator):
+            generator = self.pipeline(text, voice='bm_george', speed=1.0, split_pattern=r'\n+')
+            for _, _, audio in generator:
                 sd.play(audio, 24000)
                 sd.wait()
-                
         except Exception as e:
-            print(f"[Kokoro Audio Error]: {e}")
+            print(f"[Audio Error]: {e}")
+        finally:
+            self.set_mode(False)
 
     def listen(self, timeout=None, phrase_time=None, is_active=False):
-        self.root.update()
+        self.set_mode(is_active)
         with sr.Microphone() as source:
-            if is_active:
-                self.root.deiconify()
-                self.root.update()
-                
             try:
                 audio = self.recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time)
-                if is_active:
-                    self.root.withdraw()
-                    self.root.update()
-                return self.recognizer.recognize_google(audio).lower()
-            except (sr.WaitTimeoutError, sr.UnknownValueError, sr.RequestError):
-                if is_active:
-                    self.root.withdraw()
-                    self.root.update()
+                return self.recognizer.recognize_google(audio, language="en-IN").lower()
+            except:
                 return ""
