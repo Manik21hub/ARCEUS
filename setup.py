@@ -1,20 +1,22 @@
+# setup.py
 from setuptools import setup, find_packages
 
 setup(
-    name="arceus-assistant",
-    version="0.1.0",
+    name="arceus",
+    version="1.0.0",
+    description="ARCEUS - Headless Windows Voice Assistant",
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "SpeechRecognition",
-        "pyttsx3",
-        "pyaudio",
-        "google-generativeai",
-        "python-dotenv"
+        "fastapi",
+        "uvicorn",
+        "requests",
+        "tabulate",
+        "pywebview"
     ],
     entry_points={
-        'console_scripts': [
-            'arceus=main:run_arceus',  # Maps the terminal command 'arceus' to your run_arceus function
-        ],
-    },
+        "console_scripts": [
+            "arceus=core.cli:main", 
+        ]
+    }
 )

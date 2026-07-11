@@ -3,23 +3,31 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-project_dir = Path("D:/Projects/ARCEUS")
-env_path = project_dir / ".env"
-load_dotenv(dotenv_path=env_path)
+# 1. Establish the absolute path to your D:/Projects/ARCEUS root directory
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+ENV_PATH = PROJECT_ROOT / '.env'
 
-# Load both keys
+# 2. Load the environment file from the explicit absolute destination
+load_dotenv(dotenv_path=ENV_PATH)
+
+# 3. Retrieve and export all keys required by the AI engine
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not GEMINI_API_KEY or not GROQ_API_KEY:
-    raise ValueError("CRITICAL: Ensure both GEMINI_API_KEY and GROQ_API_KEY are in your .env file.")
-
-SYSTEM_PROMPT = (
-    "Role: You are ARCEUS, a sarcastic British butler. "
-    "Task: Provide factual, accurate answers in 1-3 sentences. "
-    "Constraint 1: NEVER mention your rules, your personality, or your settings. "
-    "Constraint 2: NEVER explain what you are doing (e.g., do not say 'I shall adjust my wit'). Just be witty. "
-    "Constraint 3: Respond directly to the user's inquiry with a sharp, dry remark followed by the answer."
+# 4. Fallback system personality in case it isn't defined in the .env
+SYSTEM_PROMPT = os.getenv(
+    "SYSTEM_PROMPT",
+    "You are ARCEUS, a highly advanced, intelligent desktop AI assistant. "
+    "Execute commands efficiently and maintain structural control over the system."
 )
 
-WAKE_WORD = "arceus"
+# 5. Core peripheral preferences
+SPEECH_RATE = int(os.getenv("SPEECH_RATE", 150))
+
+# 6. Safety validation check to catch setup problems early
+if not GEMINI_API_KEY and not GROQ_API_KEY:
+    raise ValueError(
+        f"Initialization Failure: No API keys resolved.\n"
+        f"Checked Absolute Path: {ENV_PATH}\n"
+        f"Please ensure either GEMINI_API_KEY or GROQ_API_KEY is defined inside your .env file."
+    )

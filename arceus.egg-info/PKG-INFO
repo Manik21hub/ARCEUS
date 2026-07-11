@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: arceus
+Version: 1.0.0
+Summary: ARCEUS - Headless Windows Voice Assistant
+License-File: LICENSE
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: requests
+Requires-Dist: tabulate
+Requires-Dist: pywebview
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
