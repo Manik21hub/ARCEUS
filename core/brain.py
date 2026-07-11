@@ -4,12 +4,10 @@ from google import genai
 from groq import Groq
 from config.settings import GEMINI_API_KEY, GROQ_API_KEY, SYSTEM_PROMPT
 from core.memory import ArceusMemory
-from core.features import FeatureManager  # <--- Import the new engine
 
 class ArceusBrain:
     def __init__(self):
         self.memory = ArceusMemory() 
-        self.features = FeatureManager()  # <--- Initialize the feature engine
         self.gemini_client = genai.Client(api_key=GEMINI_API_KEY)
         self.groq_client = Groq(api_key=GROQ_API_KEY)
         self.groq_model = "llama-3.3-70b-versatile"
@@ -20,8 +18,13 @@ class ArceusBrain:
         mem_context = self.memory.get_context()
         return (f"{SYSTEM_PROMPT} Current Humor Intensity: {self.humor_level}%. "
                 f"System Memory Bank: {mem_context}. "
-                "CRITICAL: Do not narrate your actions, do not mention your settings, "
-                "do not explain your personality. Be sharp, dry, and answer in 1-3 sentences.")
+                "\n=== INTENT CONTROLS ===\n"
+                "If the user wants to change/skip/stop/pause music or video, you must choose ONE of these tokens and reply ONLY with the token, nothing else:\n"
+                "- If they want to skip/change/next track: [MEDIA:NEXT]\n"
+                "- If they want to pause/stop/hush: [MEDIA:PAUSE]\n"
+                "- If they want to resume/play/continue: [MEDIA:PLAY]\n"
+                "If they want you to remember something, save it and reply normally.\n"
+                "Otherwise, answer their question directly in 1-3 sentences. Do not explain your settings.")
 
     def _is_complex(self, text):
         return any(keyword in text.lower() for keyword in self.complex_keywords)
@@ -29,19 +32,7 @@ class ArceusBrain:
     def generate_response(self, user_command):
         cmd_lower = user_command.lower()
 
-        # 1. Check if this is a predefined Feature (like Music)
-        feature_response = self.features.process(cmd_lower)
-        if feature_response:
-            return feature_response  # If it's a feature, stop here and return the response
-
-        # 2. Memory Storage Command
-        if "remember that" in cmd_lower:
-            fact = re.split(r'remember that', cmd_lower, maxsplit=1)[1].strip()
-            if fact:
-                self.memory.add_fact(fact)
-                return f"Archived to long-term memory. I shall try not to let it clutter the drives."
-
-        # 3. Humor Calibration Handler
+        # Handle explicit humor adjustments fast
         humor_match = re.search(r'change humor to (\d+)', cmd_lower)
         if humor_match:
             self.humor_level = int(humor_match.group(1))
@@ -49,10 +40,8 @@ class ArceusBrain:
 
         prompt = self._get_dynamic_prompt()
 
-        # 4. Standard LLM Routing (For general conversation and research)
         try:
             if self._is_complex(user_command):
-                print("[Router] Routing to Gemini (Complex/Search Enabled)")
                 interaction = self.gemini_client.models.generate_content(
                     model="gemini-1.5-flash",
                     contents=user_command,
@@ -63,7 +52,6 @@ class ArceusBrain:
                 )
                 raw_text = interaction.text
             else:
-                print("[Router] Routing to Groq (High-Speed)")
                 chat_completion = self.groq_client.chat.completions.create(
                     messages=[{"role": "system", "content": prompt}, 
                               {"role": "user", "content": user_command}],
@@ -73,9 +61,14 @@ class ArceusBrain:
                 )
                 raw_text = chat_completion.choices[0].message.content
 
-            clean_text = re.sub(r'[^a-zA-Z0-9\s.,!?\'-]', '', raw_text).strip()
-            sentences = re.split(r'(?<=[.!?]) +', clean_text)
-            return " ".join(sentences[:3])
+            # Handle memory updates if the LLM detects a fact mapping
+            if "remember that" in cmd_lower:
+                fact = re.split(r'remember that', cmd_lower, maxsplit=1)[1].strip()
+                if fact:
+                    self.memory.add_fact(fact)
+
+            # Return raw string (clean up markdown/emojis)
+            return re.sub(r'[^a-zA-Z0-9\s.,!?\'\[\]:]', '', raw_text).strip()
 
         except Exception as e:
             print(f"\n[API ERROR]: {str(e)}\n")

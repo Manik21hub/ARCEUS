@@ -3,34 +3,29 @@ import os
 import speech_recognition as sr
 import tkinter as tk
 import sounddevice as sd
-import torch  # <-- Add PyTorch import
+import torch  # <-- Ensure this is present from our GPU step
 from kokoro import KPipeline
 
 class AudioInterface:
     def __init__(self):
-        # 1. Hardware Detection Engine
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"[System] Initializing Kokoro Neural Engine on {self.device.upper()}...")
         
-        # 2. Inject the device parameter into the pipeline
         self.pipeline = KPipeline(lang_code='b', device=self.device)
-        
         self.recognizer = sr.Recognizer()
         
-        # Microphone optimization
-        self.recognizer.dynamic_energy_threshold = False 
-        self.recognizer.energy_threshold = 250            
-        self.recognizer.pause_threshold = 0.4             
-        self.recognizer.non_speaking_duration = 0.3       
+        # --- THE FIX FOR HEARING OVER MUSIC ---
+        self.recognizer.dynamic_energy_threshold = True  # Allows it to adapt to music volume
+        self.recognizer.energy_threshold = 300           # Starting baseline
+        self.recognizer.pause_threshold = 0.5            # Shorter pause required to stop listening
         
         with sr.Microphone() as source:
-            self.recognizer.adjust_for_ambient_noise(source, duration=1.0)
+            # Calrupting room noise calibration
+            self.recognizer.adjust_for_ambient_noise(source, duration=2.0)
             
-        self.setup_ui()
+        self.setup_ui()  # <-- This call must line up perfectly inside __init__
 
-# ... (Keep the rest of your setup_ui, speak, and listen methods exactly the same) ...
-
-    def setup_ui(self):
+    def setup_ui(self):  # <-- This must start at the exact same indentation level as def __init__(self):
         self.root = tk.Tk()
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
@@ -40,7 +35,7 @@ class AudioInterface:
         self.root.config(bg=self.transparent_color)
         self.root.wm_attributes("-transparentcolor", self.transparent_color)
         
-        # Canvas for the "Ready" Dot (Use a dark color so it doesn't get transparent)
+        # Canvas for the "Ready" Dot
         self.indicator = tk.Canvas(self.root, width=30, height=30, bg=self.transparent_color, highlightthickness=0)
         self.indicator.pack()
         self.dot = self.indicator.create_oval(5, 5, 25, 25, fill="#6ED7D0")
@@ -51,6 +46,8 @@ class AudioInterface:
         
         self.update_geometry(150, 40)
         self.root.withdraw()
+
+# ... (Keep the rest of your set_mode, speak, and listen methods underneath)
 
     def update_geometry(self, w, h):
         x = self.root.winfo_screenwidth() - w - 20

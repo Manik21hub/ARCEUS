@@ -1,34 +1,43 @@
 # core/features.py
+import pyautogui
 import pywhatkit
 
 class FeatureManager:
     def __init__(self):
         pass
 
-    def process(self, command):
-        """Scans the command to see if it matches any installed features."""
-        cmd_lower = command.lower()
+    def execute(self, ai_response, user_command):
+        """Processes both the raw user text and the AI's intent tokens."""
+        cmd_lower = user_command.lower()
 
-        # Feature 1: Media Controller
+        # 1. DIRECT INTERCEPTION: Starting new music
         if cmd_lower.startswith("play ") or "play some music" in cmd_lower:
-            return self._play_youtube(cmd_lower)
+            song = cmd_lower.replace("arceus", "").replace("play", "").strip()
+            if not song or song == "some music":
+                song = "lofi hip hop radio" 
+                
+            print(f"[Feature System] Initiating YouTube for: {song}")
+            try:
+                pywhatkit.playonyt(song)
+                return f"Playing {song}."
+            except:
+                return "My connection to YouTube failed."
 
-        # You can easily add Feature 2 (Weather), Feature 3 (Smart Home), etc. here later.
+        # 2. INTENT EXECUTION: Hardware Controls (Pause, Skip, Resume)
+        if "[MEDIA:NEXT]" in ai_response:
+            pyautogui.press('nexttrack')     # Standard Windows Media Key
+            pyautogui.hotkey('shift', 'n')   # YouTube specific 'Next Video' shortcut
+            return "Skipping to the next track."
 
-        # If no feature is triggered, return None to let the AI brain handle it.
-        return None 
+        if "[MEDIA:PAUSE]" in ai_response:
+            pyautogui.press('playpause')     # Standard Windows Media Key
+            pyautogui.press('k')             # YouTube specific 'Pause' shortcut
+            return "Playback has been paused."
 
-    def _play_youtube(self, command):
-        song = command.replace("arceus", "").replace("play", "").strip()
-        
-        if not song or song == "some music":
-            song = "lofi hip hop radio" 
+        if "[MEDIA:PLAY]" in ai_response:
+            pyautogui.press('playpause')     # Standard Windows Media Key
+            pyautogui.press('k')             # YouTube specific 'Play' shortcut
+            return "Resuming your media."
 
-        print(f"[Feature System] Executing YouTube protocol for: {song}")
-        
-        try:
-            pywhatkit.playonyt(song)
-            return f"Playing {song}. Try not to let the rhythm distract you from your work."
-        except Exception as e:
-            print(f"[Feature Error]: {e}")
-            return "It seems my connection to YouTube is currently compromised."
+        # 3. DEFAULT: If no features are triggered, just speak the AI's normal text
+        return ai_response
