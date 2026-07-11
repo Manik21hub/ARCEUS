@@ -25,23 +25,30 @@ class FeatureManager:
         with open(self.cmd_file, "w") as f:
             json.dump(current_state, f)
 
-    def _extract_direct_stream(self, query):
-        """Uses yt-dlp to silently extract the raw, ad-free .mp4 URL."""
+    def _extract_playlist(self, query):
+        """Extracts a queue of 3 related tracks for the next/prev buttons."""
         ydl_opts = {
             'format': 'best',
             'noplaylist': True,
             'quiet': True,
-            'default_search': 'ytsearch1' # Grabs the #1 search result instantly
+            'no_warnings': True, # <--- This kills the terminal spam
+            'default_search': 'ytsearch3' 
         }
+        playlist = []
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(query, download=False)
-                if 'entries' in info and len(info['entries']) > 0:
-                    entry = info['entries'][0]
-                    return entry['url'], entry.get('title', 'ARCEUS Media')
+                if 'entries' in info:
+                    for entry in info['entries']:
+                        url = entry.get('url')
+                        if url:
+                            playlist.append({
+                                "url": url,
+                                "title": entry.get('title', 'ARCEUS Media')
+                            })
         except Exception as e:
-            print(f"[Stream Extraction Error]: {e}")
-        return None, None
+            print(f"[Queue Extraction Error]: {e}")
+        return playlist
 
     def execute_structural_intent(self, ai_output):
         print(f"[Engine Received]: {ai_output}")
@@ -53,27 +60,43 @@ class FeatureManager:
             query_match = re.search(r'\[QUERY:(.*?)\]', ai_output)
             if query_match:
                 query = query_match.group(1).strip()
+                print(f"[System] Building media queue for: {query}...")
                 
-                print(f"[System] Extracting raw stream for: {query}...")
-                stream_url, title = self._extract_direct_stream(query)
+                playlist = self._extract_playlist(query)
                 
-                if stream_url:
-                    self._update_overlay({"stream_url": stream_url, "title": title, "action": "none"})
-                    return f"Deploying {query} to the visual overlay."
+                if playlist:
+                    # Send the full playlist array and trigger the 'play_new' action
+                    self._update_overlay({
+                        "playlist": playlist,
+                        "track_index": 0,
+                        "action": "play_new"
+                    })
+                    return f"Deploying a {len(playlist)}-track queue for {query}."
                 return f"I could not extract a clean stream for {query}."
-            return "The playback request arrived without attributes."
 
-        # 2. MEDIA CONTROLS
+        # 2. MEDIA CONTROLS & OPACITY ADJUSTMENT
         elif "[INTENT:MEDIA]" in ai_output:
             action_match = re.search(r'\[ACTION:(.*?)\]', ai_output)
             if action_match:
                 action = action_match.group(1).strip().upper()
+                
+                if "OPACITY_" in action:
+                    try:
+                        opacity_val = int(action.split("_")[1])
+                        self._update_overlay({"opacity": opacity_val})
+                        return f"Setting player transparency to {opacity_val} percent."
+                    except Exception:
+                        pass
+                
                 if action == "PAUSE":
                     self._update_overlay({"action": "pause"})
                     return "Media paused."
                 elif action in ["PLAY", "RESUME"]:
                     self._update_overlay({"action": "play"})
                     return "Media resumed."
+                elif action == "NEXT":
+                    self._update_overlay({"action": "next"})
+                    return "Skipping to the next track."
 
         # 3. CHAT INTENT
         elif "[INTENT:CHAT]" in ai_output:

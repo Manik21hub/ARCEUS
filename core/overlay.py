@@ -3,35 +3,95 @@ import webview
 import json
 import os
 import time
+import ctypes
+
+# Windows OS-Level Transparency Constants
+GWL_EXSTYLE = -20
+WS_EX_LAYERED = 0x00080000
+LWA_ALPHA = 0x00000002
+
+def set_os_opacity(window_title, opacity_percent):
+    """Hooks into Windows DWM to fade the entire application natively."""
+    try:
+        hwnd = ctypes.windll.user32.FindWindowW(None, window_title)
+        if hwnd:
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            if not (style & WS_EX_LAYERED):
+                ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style | WS_EX_LAYERED)
+            
+            # Convert percentage (10-100) to 8-bit alpha scale (0-255)
+            alpha = int((opacity_percent / 100.0) * 255)
+            ctypes.windll.user32.SetLayeredWindowAttributes(hwnd, 0, alpha, LWA_ALPHA)
+    except Exception:
+        pass
 
 class ArceusOverlayAPI:
-    def __init__(self, cmd_file):
-        self.window = None
-        self.cmd_file = cmd_file
+    def __init__(self, overlay_instance):
+        self.overlay = overlay_instance
 
     def hide_window(self):
-        """Called by the HTML UI when you click the 'X' button."""
-        if self.window:
-            self.window.hide()
-            try:
-                with open(self.cmd_file, "r") as f:
-                    data = json.load(f)
-                data["stream_url"] = "" # Wipe URL so it doesn't auto-play later
-                with open(self.cmd_file, "w") as f:
-                    json.dump(data, f)
-            except:
-                pass
+        if self.overlay.window:
+            self.overlay.window.hide()
+            self.overlay.update_state({"action": "none", "playlist": []})
+
+    def resize_window(self, width, height):
+        if self.overlay.window:
+            w = max(400, int(width))
+            h = max(225, int(height))
+            self.overlay.window.resize(w, h)
+
+    def set_opacity(self, value):
+        """Called by the HTML slider to trigger the OS-level fade."""
+        set_os_opacity('ARCEUS Visual Media', float(value))
+
+    def next_track(self):
+        self.overlay.play_next()
+
+    def prev_track(self):
+        self.overlay.play_prev()
 
 class ArceusOverlay:
     def __init__(self):
         self.cmd_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "overlay.json"))
-        self.current_url = ""
-        self.api = ArceusOverlayAPI(self.cmd_file)
+        self.window = None
+        self.api = ArceusOverlayAPI(self)
+        self.playlist = []
+        self.track_index = 0
+
+    def play_next(self):
+        if not self.playlist: return
+        # Circular Loop: If at the end, jump back to track 1
+        self.track_index = (self.track_index + 1) % len(self.playlist)
+        self.apply_current_track()
+        self.update_state({"track_index": self.track_index})
+
+    def play_prev(self):
+        if not self.playlist: return
+        self.track_index = (self.track_index - 1) % len(self.playlist)
+        self.apply_current_track()
+        self.update_state({"track_index": self.track_index})
+
+    def apply_current_track(self):
+        if self.playlist and 0 <= self.track_index < len(self.playlist):
+            track = self.playlist[self.track_index]
+            title = track['title'].replace("'", "\\'")
+            self.window.evaluate_js(f"setStream('{track['url']}', '{title}');")
+            self.window.show()
+
+    def update_state(self, data_dict):
+        try:
+            with open(self.cmd_file, "r") as f:
+                data = json.load(f)
+            data.update(data_dict)
+            with open(self.cmd_file, "w") as f:
+                json.dump(data, f)
+        except:
+            pass
 
     def loop(self, window):
-        self.api.window = window
+        self.window = window
         while True:
-            time.sleep(0.5)
+            time.sleep(0.4)
             if not os.path.exists(self.cmd_file):
                 continue
                 
@@ -39,44 +99,43 @@ class ArceusOverlay:
                 with open(self.cmd_file, "r") as f:
                     data = json.load(f)
 
-                # 1. Play New Stream
-                if "stream_url" in data and data["stream_url"] != self.current_url:
-                    self.current_url = data["stream_url"]
-                    if self.current_url.strip():
-                        # We inject the raw stream and title directly into our custom HTML UI
-                        title = data.get("title", "ARCEUS Media").replace("'", "\\'")
-                        window.evaluate_js(f"setStream('{self.current_url}', '{title}');")
-                        window.show()
-                    else:
-                        window.hide()
+                if data.get("action") == "play_new":
+                    self.playlist = data.get("playlist", [])
+                    self.track_index = data.get("track_index", 0)
+                    self.apply_current_track()
+                    
+                    data["action"] = "none"
+                    self.update_state(data)
 
-                # 2. Controls
                 action = data.get("action")
                 if action == "pause":
-                    window.evaluate_js("document.getElementById('vid-player').pause();")
-                    data["action"] = "none"
-                    self._save_state(data)
+                    window.evaluate_js("document.getElementById('vid-player').pause(); document.getElementById('play-btn').innerHTML = '▶';")
+                    self.update_state({"action": "none"})
                 elif action == "play":
-                    window.evaluate_js("document.getElementById('vid-player').play();")
-                    data["action"] = "none"
-                    self._save_state(data)
+                    window.evaluate_js("document.getElementById('vid-player').play(); document.getElementById('play-btn').innerHTML = '⏸';")
+                    self.update_state({"action": "none"})
+                elif action == "next":
+                    self.play_next()
+                    self.update_state({"action": "none"})
                 elif action == "hide":
                     window.hide()
-                    data["action"] = "none"
-                    self._save_state(data)
+                    self.update_state({"action": "none"})
+
+                # Voice Opacity Change
+                if "opacity" in data:
+                    target = data["opacity"]
+                    window.evaluate_js(f"document.getElementById('opacity-slider').value = {target};")
+                    set_os_opacity('ARCEUS Visual Media', float(target))
+                    
+                    del data["opacity"]
+                    with open(self.cmd_file, "w") as f:
+                        json.dump(data, f)
 
             except Exception:
                 pass 
 
-    def _save_state(self, data):
-        try:
-            with open(self.cmd_file, "w") as f:
-                json.dump(data, f)
-        except:
-            pass
-
 # ==========================================
-# THE NATIVE CUSTOM PLAYER UI (HTML/CSS)
+# THE NATIVE INTERACTIVE UI (HTML/CSS/JS)
 # ==========================================
 LOCAL_PLAYER_UI = """
 <!DOCTYPE html>
@@ -85,69 +144,124 @@ LOCAL_PLAYER_UI = """
     <style>
         body, html { 
             margin: 0; padding: 0; width: 100vw; height: 100vh; 
-            overflow: hidden; background-color: transparent; 
-            font-family: 'Segoe UI', sans-serif; 
-        }
-        /* The pure video element, stretched edge-to-edge seamlessly */
-        video { 
-            width: 100vw; height: 100vh; object-fit: cover; 
-            background-color: black; border-radius: 8px;
+            overflow: hidden; background-color: #000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            user-select: none;
         }
         
-        /* The custom floating UI bar */
-        #arceus-ui {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 50px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+        video { 
+            width: 100vw; height: 100vh; object-fit: cover; 
+            background-color: #000; border-radius: 8px;
+        }
+        
+        #top-bar {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 40px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 15px; box-sizing: border-box;
             opacity: 0; transition: opacity 0.3s ease; z-index: 9999;
-            -webkit-app-region: drag; /* Makes the top bar draggable by your mouse */
+            -webkit-app-region: drag;
         }
         
-        /* Show UI when mouse hovers over the window */
-        body:hover #arceus-ui { opacity: 1; }
-        
-        .tools { display: flex; align-items: center; gap: 15px; -webkit-app-region: no-drag; }
-        .title { color: #00e5ff; font-weight: bold; font-size: 13px; text-shadow: 1px 1px 2px #000; }
-        label { color: white; font-size: 12px; font-weight: bold;}
-        
-        /* Opacity Slider */
-        input[type=range] { cursor: pointer; }
-        
-        /* Close Button */
-        .close-btn { 
-            background: none; border: none; color: #ff4444; 
-            font-size: 20px; font-weight: bold; cursor: pointer; 
-            -webkit-app-region: no-drag; transition: 0.2s;
+        #control-deck {
+            position: fixed; bottom: 0; left: 0; width: 100vw; height: 60px;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+            opacity: 0; transition: opacity 0.3s ease; z-index: 9999;
+            -webkit-app-region: no-drag;
         }
-        .close-btn:hover { color: #ff0000; transform: scale(1.1); }
+
+        body:hover #top-bar, body:hover #control-deck { opacity: 1; }
+        
+        .title { color: #00e5ff; font-weight: bold; font-size: 13px; text-shadow: 1px 1px 2px #000; letter-spacing: 1px; }
+        
+        button { background: none; border: none; color: white; font-size: 18px; cursor: pointer; transition: 0.2s; text-shadow: 0px 0px 5px rgba(0,229,255,0.5); }
+        button:hover { color: #00e5ff; transform: scale(1.15); }
+        .close-btn { color: #ff4444; text-shadow: none; }
+        .close-btn:hover { color: #ff0000; }
+        
+        .controls-wrapper { display: flex; align-items: center; gap: 15px; }
+        
+        .slider-container {
+            position: absolute; right: 25px; bottom: 20px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .slider-container span { color: #aaa; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+        input[type=range] { cursor: pointer; width: 100px; accent-color: #00e5ff; }
+
+        #resize-handle {
+            position: fixed; bottom: 0; right: 0; width: 15px; height: 15px;
+            cursor: nwse-resize; z-index: 10000;
+            background: linear-gradient(135deg, transparent 50%, rgba(0,229,255,0.5) 50%);
+        }
     </style>
 </head>
 <body>
-    <div id="arceus-ui">
-        <div class="tools">
-            <span class="title" id="vid-title">ARCEUS Media</span>
-            <label>Opacity:</label>
-            <input type="range" min="10" max="100" value="100" oninput="document.body.style.opacity = this.value / 100;">
-        </div>
-        <button class="close-btn" onclick="closePlayer()">✕</button>
+    <div id="top-bar">
+        <span class="title" id="vid-title">ARCEUS Media Engine</span>
+        <button class="close-btn" style="-webkit-app-region: no-drag;" onclick="closePlayer()">✕</button>
     </div>
     
-    <video id="vid-player" autoplay></video>
+    <div id="control-deck">
+        <div class="controls-wrapper">
+            <button onclick="prevTrack()" title="Previous Track">⏮</button>
+            <button onclick="skip(-10)" title="Back 10s">↺10</button>
+            <button id="play-btn" onclick="togglePlay()" style="font-size: 24px;" title="Play/Pause">⏸</button>
+            <button onclick="skip(10)" title="Forward 10s">↻10</button>
+            <button onclick="nextTrack()" title="Next Track">⏭</button>
+        </div>
+        
+        <div class="slider-container">
+            <span>Opacity</span>
+            <input type="range" id="opacity-slider" min="20" max="100" value="100" oninput="if(window.pywebview){ window.pywebview.api.set_opacity(this.value); }">
+        </div>
+    </div>
+
+    <div id="resize-handle"></div>
+    
+    <video id="vid-player" autoplay onended="nextTrack()"></video>
     
     <script>
-        // Called by Python to inject the raw URL and start playing
+        let vid = document.getElementById('vid-player');
+        let playBtn = document.getElementById('play-btn');
+
         function setStream(url, title) {
-            let vid = document.getElementById('vid-player');
             vid.src = url;
             vid.play();
             document.getElementById('vid-title').innerText = title;
+            playBtn.innerHTML = '⏸';
         }
         
-        // Called by the HTML button to tell Python to hide the window
+        function togglePlay() {
+            if (vid.paused) { vid.play(); playBtn.innerHTML = '⏸'; } 
+            else { vid.pause(); playBtn.innerHTML = '▶'; }
+        }
+        
+        function skip(seconds) { vid.currentTime += seconds; }
+        
         function closePlayer() {
-            document.getElementById('vid-player').pause();
+            vid.pause();
             if(window.pywebview) { window.pywebview.api.hide_window(); }
+        }
+        
+        function nextTrack() { if(window.pywebview) { window.pywebview.api.next_track(); } }
+        function prevTrack() { if(window.pywebview) { window.pywebview.api.prev_track(); } }
+
+        let handle = document.getElementById('resize-handle');
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            window.addEventListener('mousemove', resizeWindow);
+            window.addEventListener('mouseup', stopResize);
+        });
+
+        function resizeWindow(e) {
+            if(window.pywebview) {
+                window.pywebview.api.resize_window(e.clientX, e.clientY);
+            }
+        }
+        function stopResize() {
+            window.removeEventListener('mousemove', resizeWindow);
+            window.removeEventListener('mouseup', stopResize);
         }
     </script>
 </body>
@@ -157,12 +271,13 @@ LOCAL_PLAYER_UI = """
 if __name__ == '__main__':
     engine = ArceusOverlay()
     
-    # Generate the transparent, frameless native window
+    # We turn off HTML transparency (transparent=False) because we are fading the OS window directly.
     window = webview.create_window(
         'ARCEUS Visual Media',
-        html=LOCAL_PLAYER_UI, # <--- Loads our custom UI instead of YouTube.com
+        html=LOCAL_PLAYER_UI,
         frameless=True,
-        transparent=True,     # <--- Allows the opacity slider to reveal your desktop behind it
+        transparent=False, 
+        resizable=True,
         on_top=True,
         width=720,
         height=405,
