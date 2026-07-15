@@ -9,6 +9,7 @@ import subprocess
 import urllib.parse
 import time
 import pyautogui
+from core.plugin_manager import plugin_system
 
 class FeatureManager:
     def __init__(self):
@@ -171,21 +172,17 @@ class FeatureManager:
 
         # 3. AUTONOMOUS AGENT INTENT (Multi-Step Thinking & OS Control)
         elif "[INTENT:AGENT]" in ai_output:
-            thought_match = re.search(r'\[THOUGHT:(.*?)\]', ai_output)
-            if thought_match:
-                print(f"\n[ARCEUS Cognitive Process]: {thought_match.group(1).strip()}\n")
-
-            # Extract the LLM's custom spoken response, fallback if missing
-            spoken_response = "Task sequence complete, sir."
+            # Extract the custom spoken response quickly
+            spoken_response = "Done, sir."
             resp_match = re.search(r'\[RESPONSE:(.*?)\]', ai_output)
             if resp_match:
                 spoken_response = resp_match.group(1).strip()
 
             commands = re.findall(r'\[CMD:(.*?)\|(.*?)\]', ai_output)
             if not commands:
-                return "My agentic loop failed to generate an execution sequence."
+                return "Sequence matrix was empty."
 
-            print(f"[System] Executing {len(commands)}-step autonomous sequence...")
+            print(f"[System] Executing {len(commands)}-step sequence...")
             
             for action, target in commands:
                 action = action.strip().upper()
@@ -199,27 +196,27 @@ class FeatureManager:
                             subprocess.Popen("start brave", shell=True)
                         else:
                             subprocess.Popen(f"start {target}", shell=True)
-                        time.sleep(1.2) 
+                        time.sleep(0.5) # Reduced delay for faster processing
                         
                     elif action == "SEARCH":
                         url = f"https://www.google.com/search?q={urllib.parse.quote(target)}"
                         webbrowser.open(url)
-                        time.sleep(1.5)
                         
                     elif action == "TYPE":
-                        import pyautogui # Ensure pyautogui is imported
-                        pyautogui.write(target, interval=0.02)
+                        import pyautogui 
+                        pyautogui.write(target, interval=0.01)
                         
                     elif action == "HOTKEY":
                         import pyautogui
                         keys = target.split('+')
                         pyautogui.hotkey(*keys)
-                        time.sleep(0.3)
+                        
+                    else:
+                        plugin_system.execute_plugin(action, target)
                         
                 except Exception as e:
                     print(f"[Agent Warning] Step failed: {action}|{target} - {e}")
             
-            # Return the LLM's custom generated speech
             return spoken_response   
 
         clean_text = re.sub(r'\[INTENT:.*?\]|\[RESPONSE:.*?\]|\[QUERY:.*?\]|\[ACTION:.*?\]', '', ai_output)

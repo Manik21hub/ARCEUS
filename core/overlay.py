@@ -25,38 +25,36 @@ def set_os_opacity(window_title, opacity_percent):
 
 class ArceusOverlayAPI:
     def __init__(self, overlay_instance):
-        self.overlay = overlay_instance
+        # FIX: The underscore tells pywebview to ignore this object during the JS bridge scan
+        self._overlay = overlay_instance 
         self.anchor_x = 0
         self.anchor_y = 0
 
     def hide_window(self):
-        if self.overlay.window:
-            self.overlay.window.hide()
-            self.overlay.update_state({"action": "none", "playlist": []})
+        if self._overlay.window:
+            self._overlay.window.hide()
+            self._overlay.update_state({"action": "none", "playlist": []})
 
     def start_resize(self):
-        """Called the microsecond you click the handle to lock the top-left anchor."""
-        if self.overlay.window:
-            self.anchor_x = self.overlay.window.x
-            self.anchor_y = self.overlay.window.y
+        if self._overlay.window:
+            self.anchor_x = self._overlay.window.x
+            self.anchor_y = self._overlay.window.y
 
     def resize_window(self, width, height):
-        """Resizes the window and forcibly pins it to the anchor."""
-        if self.overlay.window:
+        if self._overlay.window:
             w = max(400, int(width))
             h = max(225, int(height))
-            self.overlay.window.resize(w, h)
-            # FIX: Force the OS to maintain the original top-left corner
-            self.overlay.window.move(self.anchor_x, self.anchor_y)
+            self._overlay.window.resize(w, h)
+            self._overlay.window.move(self.anchor_x, self.anchor_y)
 
     def set_opacity(self, value):
         set_os_opacity('ARCEUS Visual Media', float(value))
 
     def next_track(self):
-        self.overlay.play_next()
+        self._overlay.play_next()
 
     def prev_track(self):
-        self.overlay.play_prev()
+        self._overlay.play_prev()
 
 class ArceusOverlay:
     def __init__(self):

@@ -5,6 +5,7 @@ from google import genai
 from groq import Groq
 from config.settings import GEMINI_API_KEY, GROQ_API_KEY, SYSTEM_PROMPT
 from core.memory import ArceusMemory
+from core.plugin_manager import plugin_system
 
 class ArceusBrain:
     def __init__(self):
@@ -21,31 +22,24 @@ class ArceusBrain:
 
     def _get_dynamic_prompt(self):
         mem_context = self.memory.get_context()
+        plugin_instructions = plugin_system.get_prompt_injections()
         
         return (f"{SYSTEM_PROMPT}\n"
                 f"Current Humor Intensity: {self.humor_level}%.\n"
                 f"System Memory Bank: {mem_context}.\n\n"
-                "=== ADVANCED COGNITIVE ROUTING LAWS ===\n"
-                "Analyze the user's semantic intent. If the request requires multiple steps or OS control, "
-                "you MUST use the AGENT intent to chain actions together.\n\n"
-                "1. INTERNAL MEDIA (Playing tracks in your custom overlay):\n"
-                "   Format: [INTENT:PLAY][QUERY: exact search terms]\n"
-                "   Format: [INTENT:MEDIA][ACTION: PAUSE/PLAY/NEXT/OPACITY_50]\n\n"
-                "2. AUTONOMOUS AGENT (PC control, EXTERNAL media, multi-step tasks):\n"
-                "   Format: [THOUGHT: your logic] [INTENT:AGENT] [CMD:ACTION|Target] [RESPONSE: Your conversational spoken confirmation]\n"
-                "   Available CMD Actions: OPEN, SEARCH, TYPE, HOTKEY.\n"
-                "   \n"
-                "   EXAMPLES:\n"
-                "   User: 'Pause the music in Brave.'\n"
-                "   Output: [THOUGHT: Triggering global media pause.] [INTENT:AGENT] [CMD:HOTKEY|playpause] [RESPONSE: I have silenced the browser for you, sir.]\n\n"
-                "   User: 'Open VS Code.'\n"
-                "   Output: [THOUGHT: Launching code editor.] [INTENT:AGENT] [CMD:OPEN|code] [RESPONSE: Booting up your development environment now.]\n\n"
-                "   User: 'Turn up the volume.'\n"
-                "   Output: [THOUGHT: Increasing system volume.] [INTENT:AGENT] [CMD:HOTKEY|volumeup] [CMD:HOTKEY|volumeup] [RESPONSE: Boosting the audio levels, sir.]\n\n"
-                "3. CHAT (Questions or conversation):\n"
-                "   Format: [INTENT:CHAT][RESPONSE: Your dry, witty 1-3 sentence response]\n\n"
-                "CRITICAL: Do not output any extra text outside of these structural brackets.")
-
+                "=== FAST EXECUTION MATRIX ===\n"
+                "Be direct. Generate ZERO extra tokens or thought explanations. Choose ONE format:\n\n"
+                "1. INTERNAL MEDIA:\n"
+                "   [INTENT:PLAY][QUERY: search terms] or [INTENT:MEDIA][ACTION: PAUSE/PLAY/NEXT/OPACITY_50]\n\n"
+                "2. AUTOMOUS OS/PLUGIN AGENT:\n"
+                "   [INTENT:AGENT][CMD:ACTION|Target][RESPONSE: Quick confirmation sentence]\n"
+                "   Native commands: OPEN, SEARCH, TYPE, HOTKEY.\n"
+                "   Plugin commands:\n"
+                f"{plugin_instructions}\n"
+                "   Example: [INTENT:AGENT][CMD:HOTKEY|playpause][RESPONSE: Music paused, sir.]\n\n"
+                "3. CHAT:\n"
+                "   [INTENT:CHAT][RESPONSE: Witty 1-2 sentence response]\n\n"
+                "CRITICAL: Start your output directly with the opening bracket. No chatter.")
     def _is_complex(self, text):
         return any(keyword in text.lower() for keyword in self.complex_keywords)
 
