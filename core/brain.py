@@ -21,23 +21,32 @@ class ArceusBrain:
 
     def _get_dynamic_prompt(self):
         mem_context = self.memory.get_context()
-        rand_weeknd = random.choice(self.weeknd_songs)
-        rand_genre = random.choice(self.random_genres)
-
+        
         return (f"{SYSTEM_PROMPT}\n"
                 f"Current Humor Intensity: {self.humor_level}%.\n"
                 f"System Memory Bank: {mem_context}.\n\n"
-                "=== ADVANCED INTENT ROUTING LAWS ===\n"
-                "You must analyze the user's true semantic intent and reply using EXACTLY one of these formats:\n\n"
-                "1. If they want to play music, search a video, or request a random track/artist:\n"
+                "=== ADVANCED COGNITIVE ROUTING LAWS ===\n"
+                "Analyze the user's semantic intent. If the request requires multiple steps or OS control, "
+                "you MUST use the AGENT intent to chain actions together.\n\n"
+                "1. INTERNAL MEDIA (Playing specific tracks in your custom holographic overlay):\n"
                 "   Format: [INTENT:PLAY][QUERY: exact search terms]\n"
-                f"   (Example: If they ask for 'any song by weekend', pick a random song like '{rand_weeknd}'. "
-                f"If they say 'play random music' or 'play any song', pick a fresh vibe like '{rand_genre}').\n\n"
-                "2. If they want to pause or resume the current playing track:\n"
-                "   Format: [INTENT:MEDIA][ACTION: PAUSE or PLAY]\n\n"
-                "3. If they want to change the transparency of the UI overlay:\n"
-                "   Format: [INTENT:UI][VALUE: a number between 10 and 100]\n\n"
-                "4. If they are asking a question or chatting:\n"
+                "   Format: [INTENT:MEDIA][ACTION: PAUSE/PLAY/NEXT/OPACITY_50]\n\n"
+                "2. AUTONOMOUS AGENT (PC control, EXTERNAL media like Brave/Spotify, and multi-step tasks):\n"
+                "   Format: [THOUGHT: your internal logic] [INTENT:AGENT] [CMD:ACTION|Target]\n"
+                "   Available CMD Actions: \n"
+                "   - OPEN (e.g., [CMD:OPEN|brave] or [CMD:OPEN|spotify])\n"
+                "   - SEARCH (e.g., [CMD:SEARCH|drone topologies])\n"
+                "   - TYPE (e.g., [CMD:TYPE|Hello world])\n"
+                "   - HOTKEY (e.g., [CMD:HOTKEY|playpause] to pause Brave/Spotify globally!)\n"
+                "   - HOTKEY (e.g., [CMD:HOTKEY|nexttrack] or [CMD:HOTKEY|prevtrack])\n"
+                "   - HOTKEY (e.g., [CMD:HOTKEY|ctrl+w] to close a tab, or [CMD:HOTKEY|ctrl+t] for new tab)\n"
+                "   \n"
+                "   EXAMPLES:\n"
+                "   User: 'Pause the music in Brave.'\n"
+                "   Output: [THOUGHT: The user wants to pause external OS media. I will trigger the global media key.] [INTENT:AGENT] [CMD:HOTKEY|playpause]\n\n"
+                "   User: 'Close this tab in Brave.'\n"
+                "   Output: [THOUGHT: I need to ensure Brave is focused, then send the close tab hotkey.] [INTENT:AGENT] [CMD:OPEN|brave] [CMD:HOTKEY|ctrl+w]\n\n"
+                "3. CHAT (Questions or standard conversation):\n"
                 "   Format: [INTENT:CHAT][RESPONSE: Your dry, witty 1-3 sentence response]\n\n"
                 "CRITICAL: Do not output any extra text outside of these structural brackets.")
 
